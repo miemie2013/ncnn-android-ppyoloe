@@ -1,0 +1,25 @@
+
+可能需要修改app/build.gradle里的
+    externalNativeBuild {
+        cmake {
+            version "3.10.2"
+            path file('src/main/jni/CMakeLists.txt')
+        }
+    }
+cmake版本为你电脑的环境变量PATH里的cmake的版本。
+
+
+
+ndk版本建议使用ndk21
+
+查看、设置、修改NDK的版本
+https://blog.csdn.net/generallizhong/article/details/121046862
+
+可能需要修改app/build.gradle里的
+    ndkVersion 'xx.x.xxxxxxxx'
+版本为你安装的ndk的版本。
+
+
+
+
+
