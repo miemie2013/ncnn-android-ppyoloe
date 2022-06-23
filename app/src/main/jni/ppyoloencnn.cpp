@@ -110,7 +110,7 @@ static int draw_fps(cv::Mat& rgb)
     return 0;
 }
 
-static PPYOLOE* model = 0;
+static PPYOLOE* det_model = 0;
 static ncnn::Mutex lock;
 
 class MyNdkCamera : public NdkCameraWindow
@@ -125,12 +125,12 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const
     {
         ncnn::MutexLockGuard g(lock);
 
-        if (model)
+        if (det_model)
         {
             std::vector<Object> objects;
-            model->detect(rgb, objects);
+            det_model->detect(rgb, objects);
 
-            model->draw(rgb, objects);
+            det_model->draw(rgb, objects);
         }
         else
         {
@@ -161,8 +161,8 @@ JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved)
     {
         ncnn::MutexLockGuard g(lock);
 
-        delete model;
-        model = 0;
+        delete det_model;
+        det_model = 0;
     }
 
     delete g_camera;
@@ -170,7 +170,7 @@ JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved)
 }
 
 // public native boolean loadModel(AssetManager mgr, int modelid, int cpugpu);
-JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_loadModel(JNIEnv* env, jobject thiz, jobject assetManager, jint modelid, jint cpugpu)
+JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnppyoloe_NcnnPPYOLOE_loadModel(JNIEnv* env, jobject thiz, jobject assetManager, jint modelid, jint cpugpu)
 {
     if (modelid < 0 || modelid > 6 || cpugpu < 0 || cpugpu > 1)
     {
@@ -183,26 +183,34 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_loadModel(JNIE
 
     const char* modeltypes[] =
     {
-        "ppyoloe_crn_s_300e_coco",
-        "ppyoloe_crn_m_300e_coco",
+        "yolox-nano",
+        "yolox-tiny",
+//        "ppyoloe_crn_s_300e_coco",
+//        "ppyoloe_crn_m_300e_coco",
     };
 
     const int target_sizes[] =
     {
-        416,
-        416,
+//        416,
+//        416,
+        640,
+        640,
     };
 
     const float mean_vals[][3] =
     {
         {123.675f, 116.28f, 103.53f},
         {123.675f, 116.28f, 103.53f},
+//        {255.f * 0.485f, 255.f * 0.456, 255.f * 0.406f},
+//        {255.f * 0.485f, 255.f * 0.456, 255.f * 0.406f},
     };
 
     const float norm_vals[][3] =
     {
         {1.0f/58.395f, 1.0f/57.12f, 1.0f/57.375f},
         {1.0f/58.395f, 1.0f/57.12f, 1.0f/57.375f},
+//        {1 / (255.f * 0.229f), 1 / (255.f * 0.224f), 1 / (255.f * 0.225f)},
+//        {1 / (255.f * 0.229f), 1 / (255.f * 0.224f), 1 / (255.f * 0.225f)},
     };
 
     const char* modeltype = modeltypes[(int)modelid];
@@ -216,14 +224,14 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_loadModel(JNIE
         if (use_gpu && ncnn::get_gpu_count() == 0)
         {
             // no gpu
-            delete model;
-            model = 0;
+            delete det_model;
+            det_model = 0;
         }
         else
         {
-            if (!model)
-                model = new PPYOLOE;
-            model->load(mgr, modeltype, target_size, mean_vals[(int)modelid], norm_vals[(int)modelid], use_gpu);
+            if (!det_model)
+                det_model = new PPYOLOE;
+            det_model->load(mgr, modeltype, target_size, mean_vals[(int)modelid], norm_vals[(int)modelid], use_gpu);
         }
     }
 
@@ -231,7 +239,7 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_loadModel(JNIE
 }
 
 // public native boolean openCamera(int facing);
-JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_openCamera(JNIEnv* env, jobject thiz, jint facing)
+JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnppyoloe_NcnnPPYOLOE_openCamera(JNIEnv* env, jobject thiz, jint facing)
 {
     if (facing < 0 || facing > 1)
         return JNI_FALSE;
@@ -244,7 +252,7 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_openCamera(JNI
 }
 
 // public native boolean closeCamera();
-JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_closeCamera(JNIEnv* env, jobject thiz)
+JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnppyoloe_NcnnPPYOLOE_closeCamera(JNIEnv* env, jobject thiz)
 {
     __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "closeCamera");
 
@@ -254,7 +262,7 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_closeCamera(JN
 }
 
 // public native boolean setOutputWindow(Surface surface);
-JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnyolox_NcnnPPYOLOE_setOutputWindow(JNIEnv* env, jobject thiz, jobject surface)
+JNIEXPORT jboolean JNICALL Java_com_tencent_ncnnppyoloe_NcnnPPYOLOE_setOutputWindow(JNIEnv* env, jobject thiz, jobject surface)
 {
     ANativeWindow* win = ANativeWindow_fromSurface(env, surface);
 
